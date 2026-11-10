@@ -195,10 +195,12 @@ fn one_em((ascent, descent): (f64, f64), upem: f64) -> bool {
 
 /// The font a Windows 3.1-era charset name stands for: `Times New Roman Cyr`, `Arial CE`,
 /// `Courier New Baltic`, `Arial (Hebrew)`… are aliases Windows keeps (its FontSubstitutes) for
-/// the font itself, and old Russian and Central European documents name them. Other names are
-/// returned unchanged.
+/// the font itself, and old Russian and Central European documents name them. So is a
+/// Monotype name with its ` MT` suffix (`Arial MT`, from the PostScript name `ArialMT`): Word
+/// draws a CV template's "Arial MT" text in Arial. Callers try the name as given first, so an
+/// installed family named so (Gill Sans MT) keeps it. Other names are returned unchanged.
 pub fn charset_base_family(family: &str) -> &str {
-    const SUFFIXES: &[&str] = &[" cyr", " ce", " greek", " tur", " baltic", " (arabic)", " (hebrew)", " (vietnamese)"];
+    const SUFFIXES: &[&str] = &[" cyr", " ce", " greek", " tur", " baltic", " (arabic)", " (hebrew)", " (vietnamese)", " mt"];
     let lower = family.trim_end().to_ascii_lowercase();
     SUFFIXES
         .iter()
@@ -863,6 +865,8 @@ mod tests {
         assert_eq!(charset_base_family("Arial (Hebrew)"), "Arial");
         assert_eq!(charset_base_family("Cyr"), "Cyr");
         assert_eq!(charset_base_family("Calibri"), "Calibri");
+        assert_eq!(charset_base_family("Arial MT"), "Arial");
+        assert_eq!(charset_base_family("MT"), "MT");
         assert_eq!(substitutes(charset_base_family("Times New Roman Cyr")), substitutes("Times New Roman"));
     }
 
