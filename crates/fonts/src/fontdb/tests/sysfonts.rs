@@ -725,6 +725,19 @@ fn geometric_shapes_fall_back_to_times_new_roman() {
     assert_ne!(db.fallback_for('▪', primary.id()).unwrap().family, "Times New Roman", "an emoji shape without an emoji face");
 }
 
+/// An emoji shape ("▪") goes to Apple Color Emoji only, as Word for Mac draws it: another colour
+/// emoji face (Noto Color Emoji on Linux) is far wider and shorter, so the shape keeps the
+/// ordinary fallback.
+#[test]
+fn emoji_shapes_take_apple_color_emoji_only() {
+    let dir = font_dir("emoji-shape-fallback");
+    std::fs::write(dir.join("Emoji-Regular.ttf"), named_face("JetBrainsMono-Regular.ttf", "Noto Color Emoji")).unwrap();
+    let db = FontDb::with_font_dirs(vec![dir]);
+    let primary = db.face("Source Serif 4", "Regular");
+    assert!(!primary.covers('▪'));
+    assert_ne!(db.fallback_for('▪', primary.id()).unwrap().family, "Noto Color Emoji");
+}
+
 #[test]
 fn circle_without_text_face() {
     let db = FontDb::with_font_dirs(Vec::new());

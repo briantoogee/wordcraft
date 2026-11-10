@@ -75,9 +75,11 @@ impl FontDb {
         // list lines 0.5 pt taller); a colour emoji face first for the shapes that are emoji
         // ("▪", "▫": Word for Mac embeds Apple Color Emoji); and Cambria Math for mathematical
         // operators (a "∴" bullet in Calibri).
-        // Without a colour emoji face those keep the ordinary fallback: its taller line is
-        // nearer Apple Color Emoji's than Times New Roman's.
-        const EMOJI_SHAPE: &[&str] = &["Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"];
+        // Only Apple Color Emoji: other colour emoji faces are no stand-in for it. Noto Color
+        // Emoji's "▪" is so wide that the text after it went to the next tab stop and wrapped,
+        // and its line is shorter (jacobThomas on Linux, a line more on a page). Without Apple's
+        // face those shapes keep the ordinary fallback, whose line is nearer Apple's.
+        const EMOJI_SHAPE: &[&str] = &["Apple Color Emoji"];
         let families: &[&str] = match u32::from(c) {
             0x25AA | 0x25AB | 0x25B6 | 0x25C0 | 0x25FB..=0x25FE => EMOJI_SHAPE,
             0x25A0..=0x25FF => &["Times New Roman"],
