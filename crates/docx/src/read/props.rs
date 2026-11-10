@@ -515,13 +515,21 @@ fn shd_fill(e: &El) -> Option<Rgb> {
     None
 }
 
+/// A border's space (`w:space`, whole points) as Word draws it: the low five bits.
+fn border_space(v: f32) -> f32 {
+    ((v.max(0.0).min(1e6).round() as u32) % 32) as f32
+}
+
 impl PropCtx {
     /// One border (`CT_Border`); its theme colour supersedes `w:color`, as for text.
     pub fn border(&self, e: &El) -> Border {
         let style = BorderStyle::from_ooxml(e.attr("w:val").unwrap_or("single"));
         let width = e.attr("w:sz").and_then(|v| measure(v, 8.0)).unwrap_or(0.5).clamp(0.0, 12.0);
         let color = self.theme_color(e, "w:themeColor", "w:themeTint", "w:themeShade").or_else(|| e.attr("w:color").and_then(Rgb::parse));
-        let space = e.attr("w:space").and_then(|v| measure(v, 1.0)).unwrap_or(0.0).clamp(0.0, 31.0);
+        // Word keeps a border's space in five bits: 0-31 pt as given, a larger value as its
+        // remainder by 32 (100 pt is drawn 4 pt from the text, 40 pt 8 pt, a page border's 201 pt
+        // 9 pt; measured on Word for Mac's PDFs), not clamped to 31.
+        let space = e.attr("w:space").and_then(|v| measure(v, 1.0)).filter(|v| v.is_finite()).map_or(0.0, border_space);
         Border { style, width, color, space }
     }
 
