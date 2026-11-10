@@ -727,6 +727,10 @@ fn borrowed_line(family: &str, upem: f64) -> Option<(f64, f64)> {
         // apart, 11 pt body lines 12.72 pt, the first baseline 0.91 em down; 32 line pairs over
         // the CV templates, median 1.162 em).
         "abadi" => hhea_line(1817, -504, 50),
+        // Apple's Helvetica is one em tall (hhea 1577 / -471, no gap); Word for Mac spaces it
+        // 1.2 em (a CV template's 11 pt lines 13.2 pt apart; 96 of 107 line pairs over the CV
+        // templates).
+        "helvetica" => hhea_line(1577, -471, 410),
         "courier" => hhea_line(1705, -615, 0),
         _ => return None,
     };
@@ -788,7 +792,9 @@ mod tests {
         assert_eq!(borrowed_line("Times New Roman", 2048.0), Some((1912.0, 443.0)));
         // Abadi keeps only a little of its 303-unit line gap.
         assert_eq!(borrowed_line("Abadi", 2048.0), Some((1867.0, 504.0)));
-        for family in ["Courier New", "Helvetica", "Hoefler Text", "Palatino", ""] {
+        // Helvetica takes 1.2 em.
+        assert_eq!(borrowed_line("Helvetica", 2048.0), Some((1987.0, 471.0)));
+        for family in ["Courier New", "Helvetica Neue", "Hoefler Text", "Palatino", ""] {
             assert_eq!(borrowed_line(family, 2048.0), None, "{family}");
         }
     }
