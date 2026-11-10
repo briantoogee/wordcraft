@@ -836,7 +836,17 @@ impl Scan {
         resolve_tab(pl, &mut self.pending_tab, &mut self.xs, self.c0, self.x, &mut self.x);
         let rp = &bk.rp;
         let ptab = pl.ptabs.iter().find(|t| t.0 == j).map(|&(_, a, b, l)| ptab_stop(a, b, l, bk.width, (rp.indent_left, rp.indent_right)));
-        let stop = ptab.unwrap_or_else(|| next_tab(self.x, &rp.tabs, bk.default_tab, bk.hanging_at, bk.tab_origin));
+        let mut stop = ptab.unwrap_or_else(|| next_tab(self.x, &rp.tabs, bk.default_tab, bk.hanging_at, bk.tab_origin));
+        // Beside a floating object the line ends at the object: a right, centre or decimal stop
+        // past that edge aligns there, as in Word (a date on a right tab at the right margin
+        // ends against a sidebar table floating at the right, not under it).
+        if ptab.is_none()
+            && self.narrowed
+            && stop.pos > self.right_edge + 0.01
+            && matches!(stop.align, TabAlign::Right | TabAlign::Center | TabAlign::Decimal)
+        {
+            stop.pos = self.right_edge;
+        }
         // A positional tab whose place the text has passed goes there on the next line
         // (ECMA-376 §17.3.3.23); a line with nothing but markers on it is empty.
         if ptab.is_some() && stop.pos < self.x - 0.01 && has_content(pl, self.c0, j) {
