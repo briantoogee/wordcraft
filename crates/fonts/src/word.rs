@@ -722,6 +722,11 @@ fn borrowed_line(family: &str, upem: f64) -> Option<(f64, f64)> {
         // whose hhea gap is 0 (1.107 em): measured on Word for Mac's PDFs, 11 pt lines 12.65 pt
         // apart, 10 pt lines 11.52 pt, with that build embedded.
         "times" | "times new roman" => hhea_line(1825, -443, 87),
+        // Abadi (Microsoft's cloud font, hhea 1817 / -504 with a 303 gap, 1.281 em): Word lays
+        // it out about 1.158 em apart, the gap mostly left out (cover lines of 38 pt 44.04 pt
+        // apart, 11 pt body lines 12.72 pt, the first baseline 0.91 em down; 32 line pairs over
+        // the CV templates, median 1.162 em).
+        "abadi" => hhea_line(1817, -504, 50),
         "courier" => hhea_line(1705, -615, 0),
         _ => return None,
     };
@@ -781,6 +786,8 @@ mod tests {
         assert_eq!(borrowed_line("Courier", 2048.0), Some((1705.0, 615.0)));
         // Only those two: the Windows fonts themselves, and other Mac fonts, keep their own.
         assert_eq!(borrowed_line("Times New Roman", 2048.0), Some((1912.0, 443.0)));
+        // Abadi keeps only a little of its 303-unit line gap.
+        assert_eq!(borrowed_line("Abadi", 2048.0), Some((1867.0, 504.0)));
         for family in ["Courier New", "Helvetica", "Hoefler Text", "Palatino", ""] {
             assert_eq!(borrowed_line(family, 2048.0), None, "{family}");
         }
