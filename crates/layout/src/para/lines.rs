@@ -471,9 +471,7 @@ impl<'e> Breaker<'e> {
             // descent) and a check box. A line break ending the line is no text.
             ex.text |= math || check_box || !matches!(c.kind, ClKind::Object(_) | ClKind::LineBreak | ClKind::PageBreak | ClKind::ColumnBreak);
         }
-        if !any
-            && let Some(st) = brk.and_then(|b| pl.styles.get(b as usize))
-        {
+        if !any && let Some(st) = brk.and_then(|b| pl.styles.get(b as usize)) {
             (ex.asc, ex.desc) = st.line_extent();
             any = true;
         }
@@ -547,7 +545,9 @@ impl<'e> Breaker<'e> {
             // font's height off its top and the picture rises that far above it, as Word draws
             // a 67.5 pt header logo at `w:line="0"` (its top 12.9 pt, one 11 pt Cambria line,
             // above the line's top: on the page's edge, not 13 pt down).
-            (LineSpacing::Multiple(m), None) if pictures_alone && m < 1.0 => ((text_pictures + (m - 1.0) * text_natural).max(text_natural * m).max(0.0), false),
+            (LineSpacing::Multiple(m), None) if pictures_alone && m < 1.0 => {
+                ((text_pictures + (m - 1.0) * text_natural).max(text_natural * m).max(0.0), false)
+            }
             (LineSpacing::Multiple(m), None) => ((text_natural * m + label_extra).max(text_pictures + (m - 1.0).max(0.0) * text_natural), false),
             (LineSpacing::AtLeast(v), None) => (natural.max(text_pictures).max(v), false),
             (LineSpacing::Exactly(v), _) => (v, false),
