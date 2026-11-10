@@ -742,10 +742,12 @@ fn notes_limit(pb: &PageBuilder, new_notes: &[NoteBox], line_notes: &[NoteBox]) 
 /// the text (see `baseline_offset`), and Word lets that leading of a page's last line run into the
 /// bottom margin: only the text has to fit (observed: a double-spaced 12pt line stays on the page
 /// while its text ends above the margin, about half a line lower than when the whole line must
-/// fit). Only the bottom margin takes that leading: a footer taller than the margin, or
-/// footnotes (`free` is false), keep the whole line clear of them.
+/// fit). A footer taller than the margin takes it too: Word keeps a 1.15-spaced 11pt line on the
+/// page with its text 0.8pt above such a footer and its leading 1.1pt into it (two CV templates
+/// with a small-print footer, every page). Footnotes (`free` is false) and balanced columns
+/// keep the whole line clear of them.
 fn fit_height(pb: &PageBuilder, l: &para::Line, rp: &wordcraft_doc::resolve::ResolvedPara, free: bool) -> f32 {
-    let at_margin = pb.bottom >= pb.sect.page_h - pb.sect.margin_bottom - 0.01;
+    let at_margin = pb.bottom >= pb.orig_bottom.min(pb.sect.page_h - pb.sect.margin_bottom) - 0.01;
     match rp.line_spacing {
         // `baseline` is from the paragraph's top; the text ends a descent below it.
         wordcraft_doc::props::LineSpacing::Multiple(m) if m > 1.0 && at_margin && free => (l.baseline - l.top + l.text_desc).clamp(0.0, l.height),

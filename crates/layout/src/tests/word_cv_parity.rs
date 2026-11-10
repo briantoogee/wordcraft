@@ -183,3 +183,49 @@ fn a_margin_anchored_table_reaching_into_a_tall_footer_stays_floating() {
     assert_eq!((pi, l.pages.len()), (0, 1), "the text stays beside the table on page 1");
     assert!((y - top).abs() < 1.0, "at the top of the body: {y}");
 }
+
+/// The last line of a page under a footer taller than the bottom margin: as at the margin, only
+/// its text has to fit above the footer and its extra leading may run into it (Word kept a
+/// 1.15-spaced 11pt line on the page with its text 0.8pt above a small-print footer and its
+/// leading 1.1pt into it, on every page of two CV templates; the line went to the next page).
+#[test]
+fn a_multiple_spaced_lines_leading_may_run_into_a_tall_footer() {
+    crate::test_fonts();
+    for multiple in [1.15, 2.0] {
+        let mut past_footer = 0;
+        for shift in (0..28).step_by(2) {
+            let mut d = Document::from_text(&"Several words wrap onto many lines of a long paragraph. ".repeat(60));
+            d.last_section.margin_bottom = 36.0;
+            d.last_section.footer = 36.0;
+            let small = wordcraft_doc::Paragraph::with_text("This CV is provided in confidence.", Default::default());
+            let id = d.add_part(PartKind::Footer, vec![para_block(small.clone()), para_block(small.clone()), para_block(small)]);
+            d.last_section.footers.default = Some(id);
+            if let Some(Block::Para(p)) = d.body.get_mut(0).map(Arc::make_mut) {
+                p.props.line_spacing = Some(LineSpacing::Multiple(multiple));
+                p.props.space_before = Some(shift as f32);
+                p.props.widow_control = Some(false);
+            }
+            let l = lay(&d);
+            let bottom = l.pages[0].body.bottom();
+            assert!(bottom < d.last_section.page_h - 36.0 - 1.0, "the footer reaches above the bottom margin: body ends at {bottom}");
+            let Some(Placed::Lines { y, para, l0, l1, .. }) =
+                l.pages[0].items.iter().find(|i| matches!(i, Placed::Lines { story: StoryRef::Body, .. }))
+            else {
+                panic!("no body lines on page 1")
+            };
+            let (first, last, next) = (&para.lines[*l0], &para.lines[*l1 - 1], &para.lines[*l1]);
+            let top = y + last.top - first.top;
+            let text_end = top + (last.baseline - last.top) + last.text_desc;
+            assert!(text_end <= bottom + 0.01, "{multiple} shift {shift}: the last line's text ends at {text_end}, in the footer at {bottom}");
+            let next_text_end = top + last.height + (next.baseline - next.top) + next.text_desc;
+            assert!(
+                next_text_end > bottom + 0.01,
+                "{multiple} shift {shift}: the next line's text would end at {next_text_end}, above the footer at {bottom}"
+            );
+            if top + last.height > bottom + 0.01 {
+                past_footer += 1;
+            }
+        }
+        assert!(past_footer > 0, "{multiple}: some shift should leave the last line's leading in the footer");
+    }
+}
