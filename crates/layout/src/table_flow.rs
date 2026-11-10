@@ -179,7 +179,16 @@ pub(crate) fn place_table(ctx: &mut Ctx, pb: &mut PageBuilder, t: &wordcraft_doc
         // so the edge sits a cell margin further out.
         let legacy = if ctx.doc.settings.compat_mode < 15 { table::first_cell_left_margin(ctx, t) } else { 0.0 };
         let h: f32 = tl.rows.iter().map(|r| r.height).sum();
-        if h <= pb.uncapped_bottom() - pb.top + 0.01 {
+        // "Fits on a page" is measured in the area the table is positioned in: one placed on
+        // the margins may reach into a footer taller than the bottom margin (Word keeps a
+        // 680 pt margin-anchored sidebar floating beside the text though the footer leaves the
+        // body 677 pt), one placed on the page may use the whole page.
+        let room = match f.v_rel {
+            Anchor::Page => pb.sect.page_h,
+            Anchor::Margin => pb.sect.text_height(),
+            _ => pb.uncapped_bottom() - pb.top,
+        };
+        if h <= room + 0.01 {
             place_floating_table(ctx, pb, &tl, &f, legacy, block, body_top);
             return;
         }
