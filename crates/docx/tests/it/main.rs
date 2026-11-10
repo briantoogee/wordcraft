@@ -44,5 +44,6 @@ mod toc_ranges;
 mod twips_wrap;
 mod undefined_style;
 mod vml_shapes;
+mod word_cv_parity;
 mod word_xml;
 mod wordml2003_write;

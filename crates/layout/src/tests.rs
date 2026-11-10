@@ -22,6 +22,7 @@ mod styleref;
 mod table_contact;
 mod textbox;
 mod vertical;
+mod word_cv_parity;
 
 const WRAP_TEST_FONT: &str = "Source Sans 3";
 
