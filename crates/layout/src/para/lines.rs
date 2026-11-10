@@ -243,7 +243,7 @@ impl<'e> Breaker<'e> {
                     self.row_first = self.lines.len();
                     return (a, b.max(a + MIN_LINE_WIDTH), narrowed);
                 }
-                Err(below) if below > self.top && guard < 50 => {
+                Err(below) if below > self.top && guard < MAX_WRAP_RETRIES => {
                     self.top = below;
                     guard += 1;
                 }
@@ -1116,24 +1116,33 @@ fn baseline_offset(spacing: LineSpacing, asc: f32, height: f32, desc: f32) -> f3
 /// The spans of a row at `top` (about `h` tall) between `lo` and `hi` that text can use around
 /// the exclusions, left to right (Square wrapping uses both sides of an object). `Err(y)`: none
 /// here, try again at `y` (below what's in the way).
+/// Most times a line moves down past floating objects that leave it no room (outlines move it
+/// a line at a time) before it is laid across them.
+const MAX_WRAP_RETRIES: usize = 400;
+
 fn row_spans(exclusions: &[Exclusion], top: f32, h: f32, table_h: f32, lo: f32, hi: f32) -> Result<VecDeque<(f32, f32)>, f32> {
     let here: Vec<&Exclusion> = exclusions.iter().filter(|e| e.intersects_row(top, h, table_h, lo, hi)).collect();
     if let Some(below) = here.iter().filter(|e| e.top_bottom).map(|e| e.bottom).reduce(f32::max) {
         return Err(below);
     }
     // What each object takes of the row: its whole area, or (Tight, Through) the stretches its
-    // outline takes, as (left, right, bottom of the object's area).
+    // outline takes, as (left, right, where a line it leaves no room may try next). A line
+    // blocked by an outline tries again a line lower, not below the whole object: Word puts a
+    // header's text two 11.5pt lines down under a full-width logo wrapped Through that covers
+    // the first 4.5pt of its first line (the header then ends 23pt down, not 16pt).
+    let next_line = top + h.max(1.0);
     let mut taken: Vec<(f32, f32, f32)> = Vec::new();
     for e in &here {
         let first = taken.len();
         match &e.contour {
             None => taken.push((e.left, e.right, e.bottom)),
-            Some(c) => taken.extend(c.occupied(top - e.top, top + h - e.top).into_iter().map(|(a, b)| (a + e.left, b + e.left, e.bottom))),
+            Some(c) => taken.extend(c.occupied(top - e.top, top + h - e.top).into_iter().map(|(a, b)| (a + e.left, b + e.left, next_line))),
         }
         // Text on one side only: the object's other side of the row is taken too.
         let Some(mine) = taken.get(first..).filter(|t| !t.is_empty() && !e.side.is_both()) else { continue };
         let left = mine.iter().map(|t| t.0).fold(f32::INFINITY, f32::min);
         let right = mine.iter().map(|t| t.1).fold(f32::NEG_INFINITY, f32::max);
+        let retry = mine.iter().map(|t| t.2).fold(f32::INFINITY, f32::min);
         let text_left = match e.side {
             WrapText::Left => true,
             WrapText::Right => false,
@@ -1141,7 +1150,7 @@ fn row_spans(exclusions: &[Exclusion], top: f32, h: f32, table_h: f32, lo: f32, 
             _ => left - lo >= hi - right,
         };
         taken.truncate(first);
-        taken.push(if text_left { (left, hi.max(right), e.bottom) } else { (lo.min(left), right, e.bottom) });
+        taken.push(if text_left { (left, hi.max(right), retry) } else { (lo.min(left), right, retry) });
     }
     taken.retain(|(l, r, _)| *r > lo && *l < hi);
     if taken.is_empty() {

@@ -207,8 +207,12 @@ pub(crate) fn wrap_area(r: Rect, float: &Float, outline: Option<&[(f32, f32)]>) 
     if matches!(float.wrap, Wrap::Inline | Wrap::BehindText | Wrap::InFrontOfText) {
         return None;
     }
+    // Tight and Through follow the object's outline, its frame when it has none of its own (an
+    // opaque picture, an unedited polygon round the frame): text still wraps it as an outline,
+    // a line at a time (see `row_spans`).
+    const FRAME: [(f32, f32); 4] = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)];
     if matches!(float.wrap, Wrap::Tight | Wrap::Through)
-        && let Some((area, c)) = outline.and_then(|o| contour::contour_area(r, float, o))
+        && let Some((area, c)) = contour::contour_area(r, float, outline.unwrap_or(&FRAME))
     {
         return Some((area, false, Some(Arc::new(c)), float.wrap_text, false));
     }

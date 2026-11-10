@@ -229,3 +229,35 @@ fn a_multiple_spaced_lines_leading_may_run_into_a_tall_footer() {
         assert!(past_footer > 0, "{multiple}: some shift should leave the last line's leading in the footer");
     }
 }
+
+/// A header paragraph under a full-width logo wrapped Through at the top of the page, which
+/// covers the first few points of its first line: Word moves the text a whole line down, not just
+/// below the logo (its header ended two lines below the header distance, 95pt, past a 90pt top
+/// margin, so the body started 5pt lower).
+#[test]
+fn a_line_blocked_by_a_through_wrapped_logo_moves_down_a_whole_line() {
+    crate::test_fonts();
+    let mut d = Document::from_text("Candidate Name");
+    d.last_section.header = 72.0;
+    d.last_section.margin_top = 90.0;
+    let mut hp = wordcraft_doc::Paragraph::with_text("Header", Default::default());
+    hp.props.space_before = Some(0.0);
+    hp.props.space_after = Some(0.0);
+    let float = Float {
+        wrap: Wrap::Through,
+        h_rel: Anchor::Page,
+        h_align: Some(FloatAlign::End),
+        v_rel: Anchor::Page,
+        v_align: Some(FloatAlign::Start),
+        dist: 9.0,
+        ..Default::default()
+    };
+    hp.insert_object(0, picture("banner", 594.0, 76.5, float), &Default::default()).unwrap();
+    let id = d.add_part(PartKind::Header, vec![para_block(hp)]);
+    d.last_section.headers.default = Some(id);
+    let l = lay(&d);
+    let line = l.pages[0].header.iter().find_map(|it| if let Placed::Lines { para, .. } = it { Some(para.lines[0].height) } else { None }).unwrap();
+    let want = 72.0 + 2.0 * line;
+    assert!(want > 90.0, "the fixture's header reaches past the top margin: {want}");
+    assert!((l.pages[0].body.y - want).abs() < 0.05, "the body starts two header lines down, at {want}, not {}", l.pages[0].body.y);
+}
