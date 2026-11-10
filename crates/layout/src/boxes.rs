@@ -260,8 +260,7 @@ pub(crate) fn layout_box(ctx: &mut Ctx, input: BoxInput<'_>) -> BoxLayout {
                     // it), like a page-anchored floating table there (`footer_table_wraps`).
                     if frame.is_some()
                         && !in_cell
-                        && matches!(float.v_rel, Anchor::Page | Anchor::Margin)
-                        && matches!(story, StoryRef::Part(id) if ctx.doc.parts.get(&id).is_some_and(|p| p.kind == wordcraft_doc::PartKind::Footer))
+                        && footer_page_frame(ctx.doc, story, &float)
                         && let Some(a) = area.clone()
                     {
                         page_table_wraps.push(a);
@@ -429,6 +428,13 @@ fn natural_width(pl: &ParaLayout) -> f32 {
         })
         .fold(0.0f32, f32::max);
     widest + pl.rp.indent_left.max(0.0) + pl.rp.indent_right.max(0.0)
+}
+
+/// A frame in footer `story` placed against the page or its margins, which the body text on
+/// the page wraps around.
+fn footer_page_frame(doc: &Document, story: StoryRef, float: &Float) -> bool {
+    matches!(float.v_rel, Anchor::Page | Anchor::Margin)
+        && matches!(story, StoryRef::Part(id) if doc.parts.get(&id).is_some_and(|p| p.kind == wordcraft_doc::PartKind::Footer))
 }
 
 /// A text frame's placement as a floating object's (`w:framePr` → anchors, alignment, wrap).

@@ -517,7 +517,7 @@ fn shd_fill(e: &El) -> Option<Rgb> {
 
 /// A border's space (`w:space`, whole points) as Word draws it: the low five bits.
 fn border_space(v: f32) -> f32 {
-    ((v.max(0.0).min(1e6).round() as u32) % 32) as f32
+    ((v.clamp(0.0, 1e6).round() as u32) % 32) as f32
 }
 
 impl PropCtx {

@@ -93,7 +93,8 @@ fn a_line_break_does_not_make_a_line_of_text_taller() {
     let line_heights = |break_size: f32| {
         let mut d = Document::from_text("");
         let at = d.insert_text(&Pos::body(0, 0), "Represented by", &small).unwrap();
-        let at = d.insert_text(&at, &wordcraft_doc::para::LINE_BREAK.to_string(), &CharProps { size: Some(break_size), ..Default::default() }).unwrap();
+        let at =
+            d.insert_text(&at, &wordcraft_doc::para::LINE_BREAK.to_string(), &CharProps { size: Some(break_size), ..Default::default() }).unwrap();
         d.insert_text(&at, "Call the office", &small).unwrap();
         let (_, _, _, para) = piece(&lay(&d), 0);
         para.lines.iter().map(|l| l.height).collect::<Vec<_>>()
