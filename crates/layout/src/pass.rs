@@ -213,6 +213,7 @@ fn new_page_builder<'p>(
         seps: NoteSeps::default(),
         para_end: None,
         behind: Vec::new(),
+        front: Vec::new(),
         max_y: 0.0,
         content_bottom: 0.0,
         balance: None,
@@ -406,6 +407,7 @@ fn section_endnotes(ctx: &mut Ctx, pb: &mut PageBuilder, endnotes: &mut VecDeque
 /// the turned pages of vertical sections.
 fn finish_pages(pb: PageBuilder, doc: &Document, sections: &[(usize, &SectionProps)], web: bool) -> Vec<Page> {
     let mut pb = pb;
+    pb.flush_front();
     pb.close_column_lines();
     pb.apply_valign();
     pb.flush_notes();

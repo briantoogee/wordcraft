@@ -3,7 +3,7 @@ use super::cache::has_page_number_fields;
 use super::ctx::Ctx;
 use super::floats::{
     FloatAnchor, LateFloats, ObjFrame, ObjectPlacement, anchor_floats, body_wraps, continued_exclusions, fitting, late_floats, place_late,
-    place_objects,
+    place_objects, place_objects_layered,
 };
 use super::notes::{DECOR_STORY, NoteBox, para_notes};
 use super::page::{PageBuilder, PageFrame, item_bottom};
@@ -555,7 +555,7 @@ impl<'a> Flow<'a> {
             pinned: None,
             late: Some(&self.late),
         };
-        let (behind, front) = place_objects(
+        let (behind, front, over) = place_objects_layered(
             ctx,
             &ObjectPlacement {
                 story: StoryRef::Body,
@@ -571,6 +571,7 @@ impl<'a> Flow<'a> {
         );
         self.late.drew();
         items.extend(front);
+        pb.defer_front(over);
         items.extend(line_numbers(ctx, pb, &self.pl, (l0, l1), y));
         add_items(pb, behind, items);
         if let (Some(f), Some(l)) = (self.pl.lines.get(l0), self.pl.lines.get(l1 - 1)) {

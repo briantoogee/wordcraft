@@ -63,6 +63,10 @@ pub(crate) struct PageBuilder<'a> {
     /// Per page: how many items were inserted at the front of its list (behind the text), so a
     /// [`Snap`] can take them out again.
     pub(crate) behind: Vec<usize>,
+    /// The current page's floating objects drawn in front of the text, with their stacking
+    /// order: added to its items when it is finished, after all its text, as Word draws an
+    /// in-front picture over the paragraphs after its anchor too ([`Self::flush_front`]).
+    pub(crate) front: Vec<(u32, Vec<Placed>)>,
     /// The bottom of the tallest column on the current page before the current one.
     pub(crate) max_y: f32,
     /// The bottom of the lowest line or table row placed on the current page (without the space
@@ -283,6 +287,7 @@ impl PageBuilder<'_> {
     /// the page before, and starts one page.
     pub(crate) fn take_back_break_page(&mut self) -> bool {
         let empty = self.after_break_mark
+            && self.front.is_empty()
             && self.at_top()
             && self.notes.is_empty()
             && self.pages.len() > 1
@@ -301,7 +306,21 @@ impl PageBuilder<'_> {
     /// Finish the current page: the lines between its columns, its vertical alignment and its
     /// footnotes, placed with the section state in effect (margins, gutter, separators).
     /// `new_page` starts with this; after it has run, `new_page` finds nothing left to finish.
+    /// Hold floating objects drawn in front of the text until the page is finished.
+    pub(crate) fn defer_front(&mut self, over: Vec<(u32, Vec<Placed>)>) {
+        self.front.extend(over);
+    }
+    /// Draw the page's in-front floating objects over everything placed on it, lowest
+    /// `relativeHeight` first (stable: equal orders keep the document's order).
+    pub(crate) fn flush_front(&mut self) {
+        let mut over = std::mem::take(&mut self.front);
+        over.sort_by_key(|(z, _)| *z);
+        if let Some(pg) = self.pages.last_mut() {
+            pg.items.extend(over.into_iter().flat_map(|(_, items)| items));
+        }
+    }
     pub(crate) fn finish_page(&mut self) {
+        self.flush_front();
         self.close_column_lines();
         self.apply_valign();
         // The page is aligned once: finishing it again before it is left moves nothing twice.
