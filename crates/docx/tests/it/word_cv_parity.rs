@@ -70,3 +70,28 @@ fn paragraphs_nested_in_a_paragraph_follow_it() {
     let texts: Vec<&str> = d.body.iter().filter_map(|b| b.as_para()).map(|p| p.text.as_str()).collect();
     assert_eq!(texts, ["a", "", "b", "c"]);
 }
+
+/// Page borders measured from the text (`w:offsetFrom` left out or "text"): Word draws a line
+/// 9pt from the text (`w:space="201"`, kept to its low five bits) outside a 37pt margin about
+/// 27.5pt from the page's edge, where the model measures page borders from. Measured from the
+/// page, the space stays. Both come back as they were after a save.
+#[test]
+fn page_borders_measured_from_the_text_sit_outside_the_margins() {
+    let sect = |from: &str| {
+        format!(
+            r#"<w:p/><w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="540" w:right="740" w:bottom="540" w:left="740" w:header="708" w:footer="500" w:gutter="0"/><w:pgBorders{from}><w:top w:val="single" w:sz="8" w:color="000000"/><w:left w:val="single" w:sz="8" w:space="201" w:color="000000"/></w:pgBorders></w:sectPr>"#
+        )
+    };
+    let spaces = |d: &wordcraft_doc::Document| {
+        let b = d.last_section.page_borders.unwrap();
+        (b.top.unwrap().space, b.left.unwrap().space)
+    };
+    for from in ["", r#" w:offsetFrom="text""#] {
+        let d = wordcraft_docx::read(&docx(&sect(from), None)).unwrap();
+        assert_eq!(spaces(&d), (27.0 - 0.5, 37.0 - 9.0 - 0.5), "{from}");
+        let again = wordcraft_docx::read(&wordcraft_docx::write(&d).unwrap()).unwrap();
+        assert_eq!(spaces(&again), spaces(&d), "{from}: a save keeps them");
+    }
+    let d = wordcraft_docx::read(&docx(&sect(r#" w:offsetFrom="page""#), None)).unwrap();
+    assert_eq!(spaces(&d), (0.0, 9.0));
+}

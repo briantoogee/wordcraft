@@ -728,6 +728,7 @@ pub struct HfRef {
 pub fn sectpr(pc: &PropCtx, e: &El) -> (SectionProps, Vec<HfRef>) {
     let mut s = SectionProps::default();
     let mut refs = Vec::new();
+    let mut from_text = false;
     for k in e.els() {
         match k.name.as_str() {
             "w:headerReference" | "w:footerReference" => {
@@ -848,7 +849,10 @@ pub fn sectpr(pc: &PropCtx, e: &El) -> (SectionProps, Vec<HfRef>) {
                     _ => PageVAlign::Top,
                 }
             }
-            "w:pgBorders" => s.page_borders = Some(pc.borders(k)),
+            "w:pgBorders" => {
+                s.page_borders = Some(pc.borders(k));
+                from_text = k.attr("w:offsetFrom") != Some("page");
+            }
             "w:docGrid" => {
                 let mut g = DocGrid::default();
                 if let Some(t) = k.attr("w:type").and_then(DocGridType::from_ooxml) {
@@ -865,7 +869,26 @@ pub fn sectpr(pc: &PropCtx, e: &El) -> (SectionProps, Vec<HfRef>) {
             _ => {}
         }
     }
+    if from_text {
+        page_borders_from_text(&mut s);
+    }
     (s, refs)
+}
+
+/// Page borders measured from the text (`w:offsetFrom="text"`, the default) as the model keeps
+/// them, from the page's edge: each line's middle its space plus half its width outside the
+/// margin (Word for Mac: a border 9pt from the text with a 37pt margin is drawn about 27.5pt
+/// from the page's edge; WordCraft drew it 9pt from the edge).
+fn page_borders_from_text(s: &mut SectionProps) {
+    let margins = [s.margin_top, s.margin_left, s.margin_bottom, s.margin_right];
+    let Some(b) = s.page_borders.as_mut() else { return };
+    for (side, margin) in [&mut b.top, &mut b.left, &mut b.bottom, &mut b.right].into_iter().zip(margins) {
+        if let Some(e) = side.as_mut()
+            && margin.is_finite()
+        {
+            e.space = (margin - e.space - e.width / 2.0).max(0.0);
+        }
+    }
 }
 
 /// `w:footnotePr` / `w:endnotePr` (ECMA-376 §17.11): placement, number format (only kept when

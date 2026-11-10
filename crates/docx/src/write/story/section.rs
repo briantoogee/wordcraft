@@ -89,7 +89,11 @@ fn sectpr_body(w: &mut W, s: &SectionProps) {
         );
         paper_source(w, s);
         if let Some(b) = &s.page_borders {
-            borders(w, "w:pgBorders", b, None, &[("w:offsetFrom", "text")]);
+            // The model measures page borders from the page's edge; Word keeps a border's
+            // space in 0-31pt, so they are written from the text when that fits (borders read
+            // from a file come back as they were) and from the page's edge otherwise.
+            let (b, from) = page_borders_out(s, b);
+            borders(w, "w:pgBorders", &b, None, &[("w:offsetFrom", from)]);
         }
         if let Some(l) = &s.line_numbers {
             let restart = match l.restart {
@@ -230,4 +234,27 @@ pub(super) fn comment_reference_style(doc: &wordcraft_doc::Document) -> &str {
         .iter()
         .find(|s| s.kind == wordcraft_doc::styles::StyleKind::Character && s.name.eq_ignore_ascii_case("annotation reference"))
         .map_or("CommentReference", |s| s.id.as_str())
+}
+
+/// Page borders `b` of section `s` as written: measured from the text when every side's space
+/// from the text is 0-31pt, else from the page's edge (at most 31pt, as Word keeps it).
+fn page_borders_out(s: &SectionProps, b: &wordcraft_doc::props::Borders) -> (wordcraft_doc::props::Borders, &'static str) {
+    let margins = [s.margin_top, s.margin_left, s.margin_bottom, s.margin_right];
+    let mut text = *b;
+    let mut fits = true;
+    for (side, margin) in [&mut text.top, &mut text.left, &mut text.bottom, &mut text.right].into_iter().zip(margins) {
+        if let Some(e) = side.as_mut() {
+            let space = (margin - e.space - e.width / 2.0).round();
+            fits &= space.is_finite() && (0.0..=31.0).contains(&space);
+            e.space = space;
+        }
+    }
+    if fits {
+        return (text, "text");
+    }
+    let mut page = *b;
+    for e in [&mut page.top, &mut page.left, &mut page.bottom, &mut page.right].into_iter().flatten() {
+        e.space = if e.space.is_finite() { e.space.clamp(0.0, 31.0) } else { 0.0 };
+    }
+    (page, "page")
 }
