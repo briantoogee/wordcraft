@@ -543,6 +543,11 @@ impl<'e> Breaker<'e> {
         let (height, centred) = match (rp.line_spacing, grid) {
             (LineSpacing::Multiple(m), Some(g)) => ((g.snap_height(natural) * m).max(g.snap_height(pictures)), true),
             (LineSpacing::AtLeast(v), Some(g)) => (g.snap_height(natural.max(pictures)).max(v), true),
+            // Pictures alone under less than single spacing: the line loses (1 - m) of the
+            // font's height off its top and the picture rises that far above it, as Word draws
+            // a 67.5 pt header logo at `w:line="0"` (its top 12.9 pt, one 11 pt Cambria line,
+            // above the line's top: on the page's edge, not 13 pt down).
+            (LineSpacing::Multiple(m), None) if pictures_alone && m < 1.0 => ((text_pictures + (m - 1.0) * text_natural).max(text_natural * m).max(0.0), false),
             (LineSpacing::Multiple(m), None) => ((text_natural * m + label_extra).max(text_pictures + (m - 1.0).max(0.0) * text_natural), false),
             (LineSpacing::AtLeast(v), None) => (natural.max(text_pictures).max(v), false),
             (LineSpacing::Exactly(v), _) => (v, false),
@@ -551,7 +556,12 @@ impl<'e> Breaker<'e> {
             let up = asc.max(obj_asc);
             self.top + ((height - up - desc) / 2.0).max(0.0) + up
         } else if let Some(m) = spacing.filter(|_| pictures_alone) {
-            self.top + (text_natural * m.min(1.0) - text_pictures).max(0.0) + obj_asc
+            if m < 1.0 && text_pictures > 0.0 {
+                // The picture's bottom stays on the line's bottom (above).
+                self.top + height - obj_desc
+            } else {
+                self.top + (text_natural * m.min(1.0) - text_pictures).max(0.0) + obj_asc
+            }
         } else {
             self.top + baseline_offset(rp.line_spacing, asc, height, below).max(obj_asc.min(height - below))
         };
