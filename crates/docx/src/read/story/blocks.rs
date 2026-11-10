@@ -42,6 +42,14 @@ impl Reader<'_> {
                         continue;
                     }
                     out.push(para_block(p));
+                    // Paragraphs nested in this one (invalid, but some generators write
+                    // `<w:p>…<w:p/><w:p/></w:p>`): Word reads each as a paragraph of its own
+                    // after it (a header's two nested empty paragraphs pushed the body 25pt down).
+                    let nested: Vec<Node> = e.children("w:p").map(|k| Node::El(k.clone())).collect();
+                    if !nested.is_empty() {
+                        let wrapper = El { name: "w:body".into(), attrs: Vec::new(), kids: nested };
+                        self.read_blocks(sc, &wrapper, rels, out, depth + 1);
+                    }
                 }
                 "w:tbl" => {
                     if depth / 4 >= MAX_TABLE_DEPTH {

@@ -60,3 +60,13 @@ fn empty_document_defaults_mean_times_new_roman_ten_points() {
     let d = wordcraft_docx::read(&docx(body, Some(named))).unwrap();
     assert_eq!(d.styles.resolve_char(None, &CharProps::default()).font, "Arial");
 }
+
+/// Paragraphs nested in a paragraph (invalid, written by some generators): Word reads each as a
+/// paragraph of its own after it (a CV header's two nested empty paragraphs took two lines).
+#[test]
+fn paragraphs_nested_in_a_paragraph_follow_it() {
+    let body = r#"<w:p><w:r><w:t>a</w:t></w:r><w:p/><w:p><w:r><w:t>b</w:t></w:r></w:p></w:p><w:p><w:r><w:t>c</w:t></w:r></w:p>"#;
+    let d = wordcraft_docx::read(&docx(body, None)).unwrap();
+    let texts: Vec<&str> = d.body.iter().filter_map(|b| b.as_para()).map(|p| p.text.as_str()).collect();
+    assert_eq!(texts, ["a", "", "b", "c"]);
+}
