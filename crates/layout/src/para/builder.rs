@@ -136,8 +136,10 @@ impl<'a> Builder<'a> {
         }
         let size = rc.draw_size() * if small { 0.8 } else { 1.0 };
         // A symbol font that isn't installed, or is installed one em tall (Apple's Symbol), takes
-        // the height Word gives it.
-        let (a, d) = match wordcraft_fonts::word::symbol_line(&rc.font, &r) {
+        // the height Word gives it; not a character the installed symbol font lacks, which Word
+        // draws (and sizes its line) in the fallback face (a "●" or "○" bullet set in Symbol:
+        // Times New Roman, a line no taller than the Calibri text's).
+        let (a, d) = match wordcraft_fonts::word::symbol_line(&rc.font, &r, face_override.is_some()) {
             Some((a, d)) => (a * face.upem, d * face.upem),
             None => wordcraft_fonts::word::line_metrics(&face),
         };

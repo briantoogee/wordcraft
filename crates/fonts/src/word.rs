@@ -183,9 +183,12 @@ pub fn symbol_font_metrics(family: &str) -> Option<(f64, f64)> {
 /// resolved face's own: the font isn't installed (`resolved` is a substitute), or the installed
 /// face is one em tall, as Apple's Symbol is (hhea 0.701 / -0.299, no gap). Word for Mac spaces
 /// such lines like Windows' Symbol: 1.222 em at 11 and 20 pt on synthetic documents (#2681).
-pub fn symbol_line(family: &str, resolved: &Resolved) -> Option<(f64, f64)> {
+/// Not for a character the installed symbol font lacks (`in_fallback`): Word draws it in a
+/// fallback face and sizes the line by that face (a "●" or "○" bullet set in Symbol, drawn in
+/// Times New Roman, leaves a Calibri line as it is).
+pub fn symbol_line(family: &str, resolved: &Resolved, in_fallback: bool) -> Option<(f64, f64)> {
     let m = symbol_font_metrics(family)?;
-    (resolved.substituted || one_em(line_metrics(&resolved.face), resolved.face.upem)).then_some(m)
+    (resolved.substituted || (!in_fallback && one_em(line_metrics(&resolved.face), resolved.face.upem))).then_some(m)
 }
 
 /// Is a line's (ascent, descent) one `upem` em tall?
@@ -884,10 +887,16 @@ mod tests {
         assert!(!one_em((899.0, 211.0), 1000.0));
         assert!(!one_em((0.0, 0.0), 0.0));
         let arial = resolve("Arial", false, false);
-        assert_eq!(symbol_line("Arial", &arial), None);
+        assert_eq!(symbol_line("Arial", &arial, false), None);
         let symbol = resolve("Symbol", false, false);
         if symbol.substituted {
-            assert_eq!(symbol_line("Symbol", &symbol), symbol_font_metrics("Symbol"));
+            assert_eq!(symbol_line("Symbol", &symbol, false), symbol_font_metrics("Symbol"));
+            // Not installed: Word's own Symbol would have had the character.
+            assert_eq!(symbol_line("Symbol", &symbol, true), symbol_font_metrics("Symbol"));
+        } else if one_em(line_metrics(&symbol.face), symbol.face.upem) {
+            assert_eq!(symbol_line("Symbol", &symbol, false), symbol_font_metrics("Symbol"));
+            // A character Apple's Symbol lacks is sized by the face that draws it.
+            assert_eq!(symbol_line("Symbol", &symbol, true), None);
         }
     }
 
