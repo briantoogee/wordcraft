@@ -1513,7 +1513,9 @@ fn is_automatic(t: &Table) -> bool {
         && t.rows.iter().all(|r| r.cells.iter().all(|c| c.props.width.is_none() && c.props.width_pct.is_none()))
 }
 
-/// Consistent cell widths replace a stale grid without changing the table's total width.
+/// Consistent cell widths replace a stale grid without changing the table's total width, or
+/// when they add up to the table's own width (a grid of 4050/200/4050 twips under cells of
+/// 4050/900/4050 in a 9000-twip table: Word lays the columns out at the cells' widths).
 /// Conflicting widths, spans and percentages need the full shared-grid algorithm.
 fn apply_cell_widths(t: &Table, grid: &mut [f32]) {
     let Some(first) = t.rows.first() else { return };
@@ -1523,7 +1525,8 @@ fn apply_cell_widths(t: &Table, grid: &mut [f32]) {
     let widths: Option<Vec<f32>> = first.cells.iter().map(|c| c.props.width.filter(|w| w.is_finite() && *w > 0.0)).collect();
     let Some(widths) = widths else { return };
     let total: f32 = widths.iter().sum();
-    if !total.is_finite() || (total - grid.iter().sum::<f32>()).abs() > 0.01 {
+    let fits = |w: f32| (total - w).abs() <= 0.01;
+    if !total.is_finite() || !(fits(grid.iter().sum::<f32>()) || t.props.width.is_some_and(fits)) {
         return;
     }
     if t.rows.iter().any(|r| {

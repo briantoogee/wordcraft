@@ -261,3 +261,28 @@ fn a_line_blocked_by_a_through_wrapped_logo_moves_down_a_whole_line() {
     assert!(want > 90.0, "the fixture's header reaches past the top margin: {want}");
     assert!((l.pages[0].body.y - want).abs() < 0.05, "the body starts two header lines down, at {want}, not {}", l.pages[0].body.y);
 }
+
+/// A table whose grid is stale (4050/200/4050 twips) under cells of 4050/900/4050 that add up
+/// to the table's own width (9000): Word lays the columns out at the cells' widths, so the
+/// middle column holds its " | " on one line. It was 10pt wide, the bar wrapped onto a line of
+/// its own in every row, and the CV ran a page longer.
+#[test]
+fn cell_widths_adding_up_to_the_table_width_replace_a_stale_grid() {
+    crate::test_fonts();
+    let mut d = Document::from_text("");
+    let mut t = Table::new(2, 3, 450.0);
+    t.grid = vec![202.5, 10.0, 202.5];
+    t.props.width = Some(450.0);
+    for row in &mut t.rows {
+        for (c, w) in row.cells.iter_mut().zip([202.5, 45.0, 202.5]) {
+            c.props.width = Some(w);
+            c.blocks = vec![para_block(wordcraft_doc::Paragraph::with_text(" | ", Default::default()))];
+        }
+    }
+    d.insert_block(StoryRef::Body, &Path::top(0), Block::Table(t)).unwrap();
+    let l = lay(&d);
+    let widths: Vec<f32> =
+        l.pages[0].items.iter().filter_map(|it| if let Placed::Cell { rect, .. } = it { Some(rect.w) } else { None }).take(3).collect();
+    assert_eq!(widths.len(), 3);
+    assert!((widths[1] - 45.0).abs() < 0.5, "the middle column is the cell's 45pt wide: {widths:?}");
+}
