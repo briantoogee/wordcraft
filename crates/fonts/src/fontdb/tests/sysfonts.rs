@@ -708,6 +708,23 @@ fn math_operators_fall_back_to_cambria_math() {
     assert_ne!(db.fallback_for('●', primary.id()).unwrap().family, "Cambria Math", "other symbols are unchanged");
 }
 
+/// A geometric shape the text's font lacks (a "○" or "◊" bullet set in Symbol): Word draws it
+/// in Times New Roman, before any other face that covers it. A shape that is an emoji ("▪")
+/// goes to a colour emoji face, and without one keeps the ordinary fallback.
+#[test]
+fn geometric_shapes_fall_back_to_times_new_roman() {
+    let dir = font_dir("shape-fallback");
+    std::fs::write(dir.join("Text-Regular.ttf"), named_face("JetBrainsMono-Regular.ttf", "Times New Roman")).unwrap();
+    let db = FontDb::with_font_dirs(vec![dir]);
+    let primary = db.face("Source Serif 4", "Regular");
+    let shapes: Vec<char> = ['○', '◊', '■', '□'].into_iter().filter(|c| !primary.covers(*c)).collect();
+    assert!(shapes.contains(&'○'), "the requested face lacks the shapes");
+    for c in shapes {
+        assert_eq!(db.fallback_for(c, primary.id()).unwrap().family, "Times New Roman", "{c}");
+    }
+    assert_ne!(db.fallback_for('▪', primary.id()).unwrap().family, "Times New Roman", "an emoji shape without an emoji face");
+}
+
 #[test]
 fn circle_without_text_face() {
     let db = FontDb::with_font_dirs(Vec::new());

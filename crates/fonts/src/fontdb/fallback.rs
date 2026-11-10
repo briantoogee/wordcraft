@@ -69,15 +69,26 @@ impl FontDb {
     }
 
     fn circle_fallback(&self, c: char, exclude: u32) -> Option<Arc<FontFace>> {
-        // Word uses this text face for an uncovered black circle, before a UI sans; and Cambria
-        // Math for mathematical operators (a CV's "∴" bullet in Calibri: Word's PDF embeds Cambria
-        // Math, whose line is no taller than Calibri's, where a symbol font made the list's
-        // lines 0.7 pt taller and the document a page longer).
-        let family = match u32::from(c) {
-            0x25CF => "Times New Roman",
-            0x2200..=0x22FF | 0x27C0..=0x27EF | 0x2980..=0x29FF | 0x2A00..=0x2AFF => "Cambria Math",
+        // Word uses Times New Roman for an uncovered geometric shape before a UI sans (a black
+        // circle, and a CV's "○" and "◊" bullets set in Symbol: Word's PDF embeds Times New
+        // Roman, whose line is no taller than the text's, where the fallback sans made those
+        // list lines 0.5 pt taller); a colour emoji face first for the shapes that are emoji
+        // ("▪", "▫": Word for Mac embeds Apple Color Emoji); and Cambria Math for mathematical
+        // operators (a "∴" bullet in Calibri).
+        // Without a colour emoji face those keep the ordinary fallback: its taller line is
+        // nearer Apple Color Emoji's than Times New Roman's.
+        const EMOJI_SHAPE: &[&str] = &["Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"];
+        let families: &[&str] = match u32::from(c) {
+            0x25AA | 0x25AB | 0x25B6 | 0x25C0 | 0x25FB..=0x25FE => EMOJI_SHAPE,
+            0x25A0..=0x25FF => &["Times New Roman"],
+            0x2200..=0x22FF | 0x27C0..=0x27EF | 0x2980..=0x29FF | 0x2A00..=0x2AFF => &["Cambria Math"],
             _ => return None,
         };
+        families.iter().find_map(|family| self.preferred_fallback(family, c, exclude))
+    }
+
+    /// `family`'s regular face when it covers `c` (loaded from the catalog when needed).
+    fn preferred_fallback(&self, family: &str, c: char, exclude: u32) -> Option<Arc<FontFace>> {
         let find = || self.find(family, "Regular").filter(|f| f.id != exclude && f.covers(c));
         if let Some(face) = find() {
             return Some(face);
