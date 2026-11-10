@@ -717,7 +717,11 @@ fn hhea_line(ascender: i16, descender: i16, line_gap: i16) -> (f64, f64) {
 /// draws a "Times" document in Times New Roman anyway.
 fn borrowed_line(family: &str, upem: f64) -> Option<(f64, f64)> {
     let (a, d) = match family.trim().to_ascii_lowercase().as_str() {
-        "times" => hhea_line(1825, -443, 87),
+        // Word lays Times New Roman out 1.15 em apart (the Windows font's hhea 1825 / -443, gap
+        // 87) even from the build Office for Mac and Microsoft 365 install ("Version 7.00;O365"),
+        // whose hhea gap is 0 (1.107 em): measured on Word for Mac's PDFs, 11 pt lines 12.65 pt
+        // apart, 10 pt lines 11.52 pt, with that build embedded.
+        "times" | "times new roman" => hhea_line(1825, -443, 87),
         "courier" => hhea_line(1705, -615, 0),
         _ => return None,
     };
@@ -776,7 +780,8 @@ mod tests {
         assert_eq!(borrowed_line(" times ", 1000.0), Some((1912.0 / 2.048, 443.0 / 2.048)));
         assert_eq!(borrowed_line("Courier", 2048.0), Some((1705.0, 615.0)));
         // Only those two: the Windows fonts themselves, and other Mac fonts, keep their own.
-        for family in ["Times New Roman", "Courier New", "Helvetica", "Hoefler Text", "Palatino", ""] {
+        assert_eq!(borrowed_line("Times New Roman", 2048.0), Some((1912.0, 443.0)));
+        for family in ["Courier New", "Helvetica", "Hoefler Text", "Palatino", ""] {
             assert_eq!(borrowed_line(family, 2048.0), None, "{family}");
         }
     }

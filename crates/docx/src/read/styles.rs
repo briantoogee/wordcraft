@@ -5,6 +5,9 @@ use super::{
 use crate::units::tw_i16;
 use std::sync::Arc;
 
+/// The font Word gives text when neither the run, its styles nor the document defaults name one.
+const DEFAULT_LATIN_FONT: &str = "Times New Roman";
+
 /// Built-in style names Word stores in lower case, and how the UI shows them.
 pub(crate) const LOWER_NAMES: &[(&str, &str)] = &[
     ("caption", "Caption"),
@@ -100,6 +103,12 @@ impl Reader<'_> {
         }
         if sheet.default_chr.size.is_none() {
             sheet.default_chr.size = Some(10.0);
+        }
+        // Document defaults that name no Latin font (`<w:rPrDefault/>`, or `w:rFonts` with only
+        // `w:eastAsia`/`w:cs`): Word sets the text in Times New Roman, as it does at 10 pt above,
+        // not in the theme's or the application's body font.
+        if sheet.default_chr.font.is_none() {
+            sheet.default_chr.font = Some(DEFAULT_LATIN_FONT.to_string());
         }
         // Built-in styles' behaviour (gallery, priority, visibility), written back as is.
         sheet.latent_styles = root.child("w:latentStyles").map(|l| l.to_xml()).filter(|x| x.len() <= MAX_LATENT_STYLES_XML);

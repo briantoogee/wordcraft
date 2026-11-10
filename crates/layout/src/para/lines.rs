@@ -413,6 +413,7 @@ impl<'e> Breaker<'e> {
         let rp = &self.rp;
         let mut ex = Extents { asc: 0.0, desc: 0.0, obj_asc: 0.0, obj_desc: 0.0, text: false };
         let mut any = false;
+        let mut brk: Option<u32> = None;
         let dropped = pl.drop_cap.map_or(0, |d| d.0);
         for (k, c) in pl.clusters.get(c0..c1).into_iter().flatten().enumerate() {
             // Spaces and tabs never make a line taller, whatever their size: Word sizes a line by
@@ -421,6 +422,16 @@ impl<'e> Breaker<'e> {
             // Floating and hidden drawings have no inline extent; their anchor font takes no height.
             let anchor = matches!(c.kind, ClKind::Object(_)) && c.adv == 0.0 && c.obj_h == 0.0;
             if matches!(c.kind, ClKind::Marker | ClKind::Space | ClKind::Tab) || anchor || c0 + k < dropped {
+                continue;
+            }
+            // A line break (`w:br`) doesn't make a line with other characters taller either:
+            // Word sizes a line of 7 pt text ending in an unformatted (10 pt) break by the 7 pt
+            // text (observed in Word for Mac's PDF of a footer). A line of only a break takes
+            // the break's size, below.
+            if c.kind == ClKind::LineBreak {
+                if brk.is_none() {
+                    brk = Some(c.style);
+                }
                 continue;
             }
             let Some(st) = pl.styles.get(c.style as usize) else { continue };
@@ -459,6 +470,12 @@ impl<'e> Breaker<'e> {
             // Text needs its descent below the line; so do inline math (an object with its own
             // descent) and a check box. A line break ending the line is no text.
             ex.text |= math || check_box || !matches!(c.kind, ClKind::Object(_) | ClKind::LineBreak | ClKind::PageBreak | ClKind::ColumnBreak);
+        }
+        if !any
+            && let Some(st) = brk.and_then(|b| pl.styles.get(b as usize))
+        {
+            (ex.asc, ex.desc) = st.line_extent();
+            any = true;
         }
         if (!any || (ex.asc == 0.0 && ex.desc == 0.0))
             && let Some(st) = pl.styles.get(self.mark_style as usize)

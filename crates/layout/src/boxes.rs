@@ -253,7 +253,20 @@ pub(crate) fn layout_box(ctx: &mut Ctx, input: BoxInput<'_>) -> BoxLayout {
                     let float = frame_float(&fr);
                     let r = float_rect(frame, (0.0, width), y, fw, h, &float);
                     push_para(&mut items, (story, &path), &pf, (0, pf.lines.len()), (r.x, r.y), fw, Edges::own(&pf, 0, pf.lines.len()));
-                    excl.extend(wrap_area(r, &float, None));
+                    let area = wrap_area(r, &float, None);
+                    // A footer's frame placed against the page or its margins reaches into the
+                    // body area when it is taller than the space below the bottom margin: the
+                    // body text wraps around it (or, a frame as wide as the text, ends above
+                    // it), like a page-anchored floating table there (`footer_table_wraps`).
+                    if frame.is_some()
+                        && !in_cell
+                        && matches!(float.v_rel, Anchor::Page | Anchor::Margin)
+                        && matches!(story, StoryRef::Part(id) if ctx.doc.parts.get(&id).is_some_and(|p| p.kind == wordcraft_doc::PartKind::Footer))
+                        && let Some(a) = area.clone()
+                    {
+                        page_table_wraps.push(a);
+                    }
+                    excl.extend(area);
                     float_tables.push(r);
                     continue;
                 }
