@@ -69,12 +69,16 @@ impl FontDb {
     }
 
     fn circle_fallback(&self, c: char, exclude: u32) -> Option<Arc<FontFace>> {
-        if c != '\u{25CF}' {
-            return None;
-        }
-        // Word uses this text face for an uncovered black circle, before a UI sans.
-        const FAMILY: &str = "Times New Roman";
-        let find = || self.find(FAMILY, "Regular").filter(|f| f.id != exclude && f.covers(c));
+        // Word uses this text face for an uncovered black circle, before a UI sans; and Cambria
+        // Math for mathematical operators (a CV's "∴" bullet in Calibri: Word's PDF embeds Cambria
+        // Math, whose line is no taller than Calibri's, where a symbol font made the list's
+        // lines 0.7 pt taller and the document a page longer).
+        let family = match u32::from(c) {
+            0x25CF => "Times New Roman",
+            0x2200..=0x22FF | 0x27C0..=0x27EF | 0x2980..=0x29FF | 0x2A00..=0x2AFF => "Cambria Math",
+            _ => return None,
+        };
+        let find = || self.find(family, "Regular").filter(|f| f.id != exclude && f.covers(c));
         if let Some(face) = find() {
             return Some(face);
         }
@@ -82,7 +86,7 @@ impl FontDb {
         {
             let enabled = self.sys.lock().unwrap_or_else(std::sync::PoisonError::into_inner).enabled;
             if enabled {
-                self.load_cataloged(FAMILY);
+                self.load_cataloged(family);
             }
         }
         find()

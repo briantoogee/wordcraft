@@ -692,6 +692,22 @@ fn circle_uses_installed_face() {
     assert_eq!(db.fallback_for('A', primary.id()).unwrap().family, FALLBACK_FAMILY, "ordinary character fallback is unchanged");
 }
 
+/// A mathematical operator the text's font lacks ("∴" as a list bullet in Calibri): Word draws
+/// it in Cambria Math, before any other face that covers it.
+#[test]
+fn math_operators_fall_back_to_cambria_math() {
+    let dir = font_dir("math-fallback");
+    std::fs::write(dir.join("Math-Regular.ttf"), named_face("JetBrainsMono-Regular.ttf", "Cambria Math")).unwrap();
+    let db = FontDb::with_font_dirs(vec![dir]);
+    let primary = db.face("Source Serif 4", "Regular");
+    assert!(!primary.covers('∴'), "the requested face lacks the operator");
+    assert!(!db.is_loaded("Cambria Math"), "fallback must find a cataloged face");
+    let found = db.fallback_for('∴', primary.id()).unwrap();
+    assert_eq!(found.family, "Cambria Math");
+    assert_ne!(db.fallback_for('∴', found.id()).unwrap().id(), found.id(), "the excluded face cannot be reused");
+    assert_ne!(db.fallback_for('●', primary.id()).unwrap().family, "Cambria Math", "other symbols are unchanged");
+}
+
 #[test]
 fn circle_without_text_face() {
     let db = FontDb::with_font_dirs(Vec::new());
